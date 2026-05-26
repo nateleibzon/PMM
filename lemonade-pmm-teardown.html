@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lemonade — PMM Teardown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c1230;
+    --paper:#fbf7f4;
+    --pink:#ff5277;
+    --pink-soft:#ffe1e7;
+    --plum:#3a2456;
+    --line:#e4dcd6;
+    --muted:#6e6378;
+    --gold:#e8a13a;
+    --mint:#2bb98a;
+    --shadow:0 18px 50px -28px rgba(40,20,50,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Spline Sans',sans-serif;
+    line-height:1.65;
+    font-size:17px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 32px}
+  .mono{font-family:'Spline Sans Mono',monospace;font-size:.74rem;letter-spacing:.08em;text-transform:uppercase}
+
+  /* ---- HERO ---- */
+  .hero{
+    background:linear-gradient(160deg,#2a1640 0%,#3a2456 55%,#5a2d5e 100%);
+    color:var(--paper);
+    padding:90px 0 80px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;right:-120px;top:-120px;width:420px;height:420px;
+    background:radial-gradient(circle,rgba(255,82,119,.55),transparent 65%);
+    filter:blur(10px);
+  }
+  .hero .wrap{position:relative;z-index:2}
+  .kicker{
+    display:inline-block;color:var(--pink);font-weight:600;
+    border:1px solid rgba(255,82,119,.4);border-radius:100px;
+    padding:5px 14px;margin-bottom:26px;
+  }
+  .hero h1{
+    font-family:'Fraunces',serif;font-weight:500;
+    font-size:clamp(2.6rem,6vw,4.3rem);line-height:1.04;
+    letter-spacing:-.02em;margin-bottom:22px;
+  }
+  .hero h1 em{font-style:italic;color:var(--pink)}
+  .hero .lede{
+    font-size:1.18rem;max-width:560px;color:#e4d8e8;
+  }
+  .signature{
+    margin-top:42px;padding-top:26px;
+    border-top:1px solid rgba(255,255,255,.14);
+    display:flex;flex-wrap:wrap;gap:30px;
+  }
+  .signature div span{display:block}
+  .signature .label{color:var(--pink);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+  .signature .val{font-size:.95rem;color:#f3eaf0}
+
+  /* ---- NAV / CONTENTS ---- */
+  .toc{
+    background:var(--ink);color:var(--paper);padding:34px 0;
+  }
+  .toc ol{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:4px 36px;counter-reset:t}
+  .toc li{counter-increment:t}
+  .toc a{
+    color:#cdbfd6;text-decoration:none;display:flex;gap:12px;
+    padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);
+    font-size:.94rem;transition:color .2s;
+  }
+  .toc a:hover{color:var(--pink)}
+  .toc a::before{content:"0" counter(t);color:var(--pink);font-family:'Spline Sans Mono',monospace;font-size:.78rem}
+
+  /* ---- SECTIONS ---- */
+  section{padding:68px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:10px}
+  .sec-num{
+    font-family:'Spline Sans Mono',monospace;font-size:.8rem;
+    color:var(--pink);font-weight:500;flex-shrink:0;
+    border:1px solid var(--pink-soft);background:var(--pink-soft);
+    border-radius:7px;padding:6px 10px;
+  }
+  .sec-head h2{
+    font-family:'Fraunces',serif;font-weight:500;
+    font-size:clamp(1.7rem,3.6vw,2.5rem);line-height:1.1;letter-spacing:-.015em;
+  }
+  .skill-tag{
+    display:inline-block;margin-bottom:30px;margin-left:62px;
+    color:var(--muted);font-size:.82rem;
+  }
+  .skill-tag b{color:var(--plum)}
+  section h3{
+    font-family:'Fraunces',serif;font-weight:600;font-size:1.22rem;
+    margin:34px 0 12px;letter-spacing:-.01em;
+  }
+  section p{margin-bottom:16px;color:#3d3348}
+  section p.note{color:var(--muted);font-size:.92rem}
+  strong{color:var(--ink);font-weight:600}
+  ul.clean{list-style:none;margin:14px 0 20px}
+  ul.clean li{
+    padding:7px 0 7px 26px;position:relative;color:#3d3348;
+    border-bottom:1px dotted var(--line);
+  }
+  ul.clean li::before{
+    content:"";position:absolute;left:0;top:15px;width:9px;height:9px;
+    background:var(--pink);border-radius:2px;transform:rotate(45deg);
+  }
+  ul.clean li:last-child{border-bottom:none}
+
+  /* callout / before-after */
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0}
+  .ba-card{border-radius:14px;padding:22px;border:1px solid var(--line)}
+  .ba-before{background:#fff;}
+  .ba-after{background:var(--plum);color:#f1e9f2;border-color:var(--plum)}
+  .ba-card .tag{font-family:'Spline Sans Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:12px}
+  .ba-before .tag{color:var(--muted)}
+  .ba-after .tag{color:var(--pink)}
+  .ba-card .headline{font-family:'Fraunces',serif;font-size:1.3rem;line-height:1.25;margin-bottom:10px}
+  .ba-card .sub{font-size:.93rem;line-height:1.55}
+  .ba-after .sub{color:#d9cbdd}
+  .why{
+    background:var(--pink-soft);border-radius:12px;padding:18px 22px;margin:18px 0;
+    font-size:.95rem;
+  }
+  .why b{color:var(--pink);text-transform:uppercase;font-size:.72rem;letter-spacing:.09em;font-family:'Spline Sans Mono',monospace;display:block;margin-bottom:6px}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:20px 0;font-size:.91rem}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{
+    font-family:'Spline Sans Mono',monospace;font-size:.68rem;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);font-weight:500;
+    background:#fff;border-bottom:2px solid var(--ink);
+  }
+  td:first-child{font-weight:600;color:var(--plum)}
+  tr:last-child td{border-bottom:none}
+  .hl{color:var(--pink);font-weight:600}
+
+  /* positioning canvas */
+  .canvas{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:22px 0}
+  .canvas-row{display:grid;grid-template-columns:160px 1fr;border-bottom:1px solid var(--line)}
+  .canvas-row:last-child{border-bottom:none}
+  .canvas-row .k{
+    background:var(--ink);color:var(--paper);padding:16px;
+    font-family:'Spline Sans Mono',monospace;font-size:.72rem;letter-spacing:.06em;
+    text-transform:uppercase;display:flex;align-items:center;
+  }
+  .canvas-row .v{padding:16px 18px;background:#fff;font-size:.95rem}
+  .canvas-row .v em{font-style:normal;background:var(--pink-soft);padding:1px 5px;border-radius:4px}
+
+  /* persona */
+  .persona{
+    background:linear-gradient(150deg,#fff,#fdf0f2);
+    border:1px solid var(--pink-soft);border-radius:18px;padding:30px;margin:22px 0;
+    box-shadow:var(--shadow);
+  }
+  .persona-top{display:flex;gap:20px;align-items:center;margin-bottom:22px}
+  .avatar{
+    width:74px;height:74px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(140deg,var(--pink),var(--gold));
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fraunces',serif;font-size:1.9rem;color:#fff;font-weight:600;
+  }
+  .persona-top h3{margin:0;font-size:1.4rem}
+  .persona-top .role{color:var(--muted);font-size:.9rem}
+  .persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .persona-grid .box h4{
+    font-family:'Spline Sans Mono',monospace;font-size:.7rem;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--pink);margin-bottom:8px;
+  }
+  .persona-grid .box p{font-size:.9rem;margin-bottom:6px}
+  .quote-bubble{
+    grid-column:1/-1;background:var(--plum);color:#f1e9f2;
+    border-radius:12px;padding:18px 22px;font-family:'Fraunces',serif;
+    font-style:italic;font-size:1.05rem;
+  }
+
+  /* journey */
+  .journey{margin:24px 0}
+  .step{
+    display:grid;grid-template-columns:46px 1fr;gap:18px;
+    padding-bottom:8px;position:relative;
+  }
+  .step:not(:last-child)::before{
+    content:"";position:absolute;left:22px;top:46px;bottom:-4px;width:2px;
+    background:var(--line);
+  }
+  .step-dot{
+    width:46px;height:46px;border-radius:50%;background:#fff;
+    border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;
+    font-family:'Spline Sans Mono',monospace;font-weight:500;font-size:.95rem;z-index:2;
+  }
+  .step-body{padding-bottom:26px}
+  .step-body h4{font-family:'Fraunces',serif;font-size:1.1rem;margin-bottom:4px}
+  .step-body .friction{
+    background:#fff;border-left:3px solid var(--gold);
+    padding:10px 14px;margin-top:8px;font-size:.9rem;border-radius:0 8px 8px 0;
+  }
+  .step-body .friction b{color:var(--gold);font-family:'Spline Sans Mono',monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:3px}
+  .step.win .step-dot{background:var(--mint);border-color:var(--mint);color:#fff}
+  .step.frict .step-dot{background:var(--gold);border-color:var(--gold);color:#fff}
+
+  /* metric experiment */
+  .exp{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:22px 0}
+  .exp .cell{border:1px solid var(--line);border-radius:12px;padding:20px;background:#fff}
+  .exp .cell.full{grid-column:1/-1}
+  .exp .cell h4{
+    font-family:'Spline Sans Mono',monospace;font-size:.7rem;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--pink);margin-bottom:10px;
+  }
+  .stat{display:flex;align-items:baseline;gap:8px;margin:6px 0}
+  .stat .big{font-family:'Fraunces',serif;font-size:1.9rem;color:var(--plum)}
+  .stat .lbl{font-size:.84rem;color:var(--muted)}
+  .arrow{color:var(--pink);font-weight:600}
+
+  /* gtm timeline */
+  .phases{margin:22px 0}
+  .phase{
+    border:1px solid var(--line);border-radius:12px;margin-bottom:12px;
+    overflow:hidden;background:#fff;
+  }
+  .phase-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px;background:var(--plum);color:#f1e9f2;
+  }
+  .phase-head .ph-name{font-family:'Fraunces',serif;font-size:1.08rem}
+  .phase-head .ph-when{font-family:'Spline Sans Mono',monospace;font-size:.72rem;color:var(--pink)}
+  .phase-body{padding:16px 18px}
+  .phase-body p{font-size:.92rem;margin-bottom:8px}
+  .phase-body p:last-child{margin-bottom:0}
+  .phase-body .metric-line{color:var(--mint);font-weight:600;font-size:.88rem}
+
+  /* footer */
+  footer{background:var(--ink);color:#cdbfd6;padding:56px 0;text-align:center}
+  footer h3{font-family:'Fraunces',serif;color:var(--paper);font-size:1.6rem;margin-bottom:12px}
+  footer p{font-size:.95rem;max-width:480px;margin:0 auto 8px}
+  footer .disc{margin-top:28px;font-size:.76rem;color:#7a6d85;line-height:1.6}
+  footer a{color:var(--pink)}
+
+  .pull{
+    font-family:'Fraunces',serif;font-style:italic;font-size:1.35rem;
+    line-height:1.4;color:var(--plum);border-left:3px solid var(--pink);
+    padding-left:22px;margin:26px 0;
+  }
+
+  @media(max-width:680px){
+    .wrap{padding:0 22px}
+    .ba,.persona-grid,.exp,.toc ol{grid-template-columns:1fr}
+    .canvas-row{grid-template-columns:1fr}
+    .skill-tag{margin-left:0}
+    .sec-head{flex-direction:column;gap:10px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">Product Marketing Teardown</span>
+    <h1>I didn't send a résumé.<br>I did the <em>job</em> first.</h1>
+    <p class="lede">A seven-part product marketing teardown of Lemonade — messaging, positioning, GTM, journey, research, persona, and growth — built the way I'd build it on day one of the role.</p>
+    <div class="signature">
+      <div><span class="label">Prepared for</span><span class="val">Lemonade — PMM Hiring Team</span></div>
+      <div><span class="label">Prepared by</span><span class="val">[Your Name] · Product Marketing</span></div>
+      <div><span class="label">Format</span><span class="val">Work sample, not a cover letter</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ TOC ============ -->
+<nav class="toc">
+  <div class="wrap">
+    <ol>
+      <li><a href="#messaging">Messaging — a page rewrite</a></li>
+      <li><a href="#positioning">Positioning — the canvas</a></li>
+      <li><a href="#gtm">Go-to-market — a launch plan</a></li>
+      <li><a href="#journey">User journey — friction map</a></li>
+      <li><a href="#research">Market research — the gap</a></li>
+      <li><a href="#persona">Persona — one sharp profile</a></li>
+      <li><a href="#growth">Growth — one metric, one test</a></li>
+    </ol>
+  </div>
+</nav>
+
+<!-- ============ 1. MESSAGING ============ -->
+<section id="messaging">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Messaging: rewriting the Renters page hero</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>Messaging & copywriting</b></p>
+
+    <p>Lemonade's renters product leads with price and speed: a policy from <strong>$5/month</strong>, a quote in <strong>90 seconds</strong>, and roughly <strong>40% of claims paid instantly</strong>. Those are strong, true proof points. But the current hero treats them as the headline — and price-led headlines invite a price comparison the customer then loses, because a renter who owns a car often finds a bundled State Farm policy cheaper once the multi-line discount is applied.</p>
+
+    <p>The fix isn't to drop the $5. It's to lead with the <strong>feeling renters actually want</strong> — protection without the dread of dealing with an insurer — and let price land as a reason to believe, not the whole pitch.</p>
+
+    <div class="ba">
+      <div class="ba-card ba-before">
+        <span class="tag">Before — current direction</span>
+        <p class="headline">Renters insurance from $5/month.</p>
+        <p class="sub">Get covered in 90 seconds. Cancel anytime. Powered by AI.</p>
+      </div>
+      <div class="ba-card ba-after">
+        <span class="tag">After — proposed rewrite</span>
+        <p class="headline">The stuff you love, covered before your coffee's cold.</p>
+        <p class="sub">Renters insurance that takes 90 seconds to start and pays most claims in minutes — from $5/month. No agents, no hold music, no catch.</p>
+      </div>
+    </div>
+
+    <div class="why">
+      <b>Why this wins</b>
+      The rewrite keeps every proof point but reorders the logic: <strong>outcome → ease → price</strong>. "Before your coffee's cold" is concrete and ownable; "no hold music" names the incumbent pain without naming a competitor. Price moves to the supporting line, so the customer evaluates Lemonade on experience — the dimension Lemonade actually wins — instead of on a bundled-rate math problem it can't always win.
+    </div>
+
+    <h3>Three supporting messages, by funnel stage</h3>
+    <ul class="clean">
+      <li><strong>Awareness</strong> — "Renting? Your landlord's insurance doesn't cover your stuff. Yours should." Reframes the category for first-time renters who don't know they need it.</li>
+      <li><strong>Consideration</strong> — "See what's covered before you pay a cent." Speaks to the quote flow as a no-risk way to learn, lowering the cost of starting.</li>
+      <li><strong>Decision</strong> — "Switch in the time it takes to read this sentence." Removes the final friction — the assumption that changing insurers is a chore.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 2. POSITIONING ============ -->
+<section id="positioning">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Positioning: the canvas, and the fight Lemonade is quietly losing</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>Positioning & competitive strategy</b></p>
+
+    <p>Here is a positioning canvas for Lemonade Renters as I'd fill it in today.</p>
+
+    <div class="canvas">
+      <div class="canvas-row"><div class="k">Target</div><div class="v">Digitally-native renters, ~22–34, in their first or second apartment, who view insurance as a chore to dispatch — not a relationship to maintain.</div></div>
+      <div class="canvas-row"><div class="k">Frame of reference</div><div class="v">Renters insurance — but the real competitive set is "the friction of getting covered at all," including <em>doing nothing</em>.</div></div>
+      <div class="canvas-row"><div class="k">Point of difference</div><div class="v">A genuinely <em>AI-native</em> experience — quote in 90 seconds, instant claims, no agents — built that way from day one, not retrofitted onto legacy systems.</div></div>
+      <div class="canvas-row"><div class="k">Reason to believe</div><div class="v">3M+ customers; ~40% of claims paid instantly; the Giveback model; pricing from $5/month.</div></div>
+      <div class="canvas-row"><div class="k">Statement</div><div class="v">For renters who want protection without the hassle, Lemonade is the insurance built for software speed — covering you in seconds and paying claims in minutes — because it was designed AI-first, while incumbents bolt AI onto century-old systems.</div></div>
+    </div>
+
+    <h3>The competitor out-messaging Lemonade — and it isn't another insurtech</h3>
+    <p>It's <strong>State Farm</strong>. Not on brand or experience — Lemonade wins those easily — but on the one question a renter-with-a-car actually asks: <em>"what will I pay?"</em></p>
+
+    <p>State Farm's <strong>multi-line bundle discount</strong> lets it advertise a higher renters rate and still deliver a lower total bill once auto is attached. Lemonade advertises "$5/month," the renter does the math with their car included, and the apparent value flips. Independent 2026 reviews repeatedly land on the same verdict: cheaper on renters alone, but if you own a car, bundling usually wins. Lemonade's headline sets up a comparison its pricing structure can't reliably win.</p>
+
+    <table>
+      <tr><th>Dimension</th><th>Lemonade</th><th>State Farm</th></tr>
+      <tr><td>Quote &amp; claims experience</td><td class="hl">Fully digital, instant</td><td>Agent-mediated, slower</td></tr>
+      <tr><td>Brand affinity with under-35s</td><td class="hl">Strong, distinctive</td><td>Low / "my parents' insurer"</td></tr>
+      <tr><td>Renters-only price</td><td class="hl">Often lower</td><td>Higher base rate</td></tr>
+      <tr><td>Total bill for a renter who drives</td><td>Loses to the bundle</td><td class="hl">Wins via multi-line discount</td></tr>
+      <tr><td>Trust when a claim goes wrong</td><td>"Bot loop" complaints</td><td class="hl">Century-long track record</td></tr>
+    </table>
+
+    <p class="pull">Lemonade's positioning gap isn't awareness — it's that the headline picks a price fight on the incumbent's home turf. Win the experience argument loudly enough that price stops being the deciding question.</p>
+
+    <div class="why">
+      <b>The recommendation</b>
+      Shift the comparative narrative from "we're cheaper" to "we're the only one that actually feels like 2026." Reserve price for renters without a car (where Lemonade genuinely wins outright), and for everyone else, compete on speed, transparency, and the claims experience — then neutralize the bundle directly with Lemonade Car cross-sell (see Section 3).
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. GTM ============ -->
+<section id="gtm">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Go-to-market: launching "Bundle &amp; Save" for renters who drive</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>Go-to-market strategy</b></p>
+
+    <p>Sections 1 and 2 surfaced one structural weakness: the renter-with-a-car defaults to a bundled incumbent. Lemonade already sells <strong>Car insurance</strong> and a <strong>renters product across most of the US</strong> — the pieces exist. What's missing is a deliberate <strong>renters → car bundle</strong> motion that meets State Farm's discount head-on. Here's the GTM plan for it.</p>
+
+    <h3>Launch one-liner</h3>
+    <p class="pull">"Already a Lemonade renter? Add your car and watch both bills drop — in under two minutes, no phone call required."</p>
+
+    <h3>Objective &amp; success metric</h3>
+    <ul class="clean">
+      <li><strong>Primary:</strong> lift renters-to-car attach rate among eligible existing renters in launch states.</li>
+      <li><strong>Guardrail:</strong> no degradation in renters retention or blended loss ratio.</li>
+      <li><strong>North star for the launch:</strong> share of new car policies originating from the existing renters base.</li>
+    </ul>
+
+    <div class="phases">
+      <div class="phase">
+        <div class="phase-head"><span class="ph-name">Phase 1 — Foundations</span><span class="ph-when">Weeks 0–3</span></div>
+        <div class="phase-body">
+          <p>Lock the eligible audience (renters in states where Lemonade Car is live). Build the in-app "add your car" path off an existing policy so the quote pre-fills known data. Set the bundle discount and validate unit economics with actuarial + finance.</p>
+          <p class="metric-line">Exit criteria — bundle quote flow live in 3+ states, discount approved.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-head"><span class="ph-name">Phase 2 — Soft launch</span><span class="ph-when">Weeks 4–7</span></div>
+        <div class="phase-body">
+          <p>Lifecycle-only: target renters at natural trigger moments — renewal, an address change, app re-engagement. Channels: in-app banner, push, email. No paid spend yet. A/B test two messages: "save on both" vs. "one app for everything."</p>
+          <p class="metric-line">Exit criteria — attach-rate signal beats control; winning message identified.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-head"><span class="ph-name">Phase 3 — Scale &amp; acquire</span><span class="ph-when">Weeks 8–14</span></div>
+        <div class="phase-body">
+          <p>Roll the winning message to all eligible renters. Flip the funnel for acquisition: run paid campaigns positioning Lemonade as the bundle built for renters first — directly countering the incumbent's auto-first bundle. Brief support on the new flow.</p>
+          <p class="metric-line">Exit criteria — bundle is a measurable share of new car policies; CAC within target.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3>Risks &amp; how I'd manage them</h3>
+    <ul class="clean">
+      <li><strong>Loss-ratio risk</strong> — car insurance carries different risk; gate the discount on underwriting, not marketing. Finance holds veto.</li>
+      <li><strong>Cannibalization</strong> — a discount to renters who'd have bought car anyway. Mitigate by measuring against a held-out control, not gross numbers.</li>
+      <li><strong>State coverage gaps</strong> — messaging must be geo-aware so renters in non-Car states never see an offer they can't take.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 4. USER JOURNEY ============ -->
+<section id="journey">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>User journey: where the renters quote flow leaks</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>User journey mapping & friction analysis</b></p>
+
+    <p>This is a walkthrough of the renters quote-to-purchase journey as a first-time renter experiences it, marking what works (green) and where a real person hesitates (gold). It's a structured map — in a live version each step would carry an annotated screenshot.</p>
+
+    <div class="journey">
+      <div class="step win">
+        <div class="step-dot">✓</div>
+        <div class="step-body">
+          <h4>1. Landing &amp; "Check our prices"</h4>
+          <p class="note">The single CTA and the chat-style entry are low-intimidation. The promise of a fast quote is clear. This step works.</p>
+        </div>
+      </div>
+      <div class="step frict">
+        <div class="step-dot">!</div>
+        <div class="step-body">
+          <h4>2. Maya asks for personal details</h4>
+          <p class="note">The AI bot collects name, address, and contact info up front.</p>
+          <div class="friction"><b>Friction</b> The first thing asked is personal data, before any value is shown. A privacy-cautious renter wonders "why do you need this already?" — and some drop. Showing an indicative price range earlier would earn the data.</div>
+        </div>
+      </div>
+      <div class="step frict">
+        <div class="step-dot">!</div>
+        <div class="step-body">
+          <h4>3. Coverage &amp; deductible sliders</h4>
+          <p class="note">Live price updates as the renter adjusts coverage — genuinely good. But a first-timer doesn't know what "$30k personal property" should be.</p>
+          <div class="friction"><b>Friction</b> The flow assumes the renter can self-assess coverage. No "most renters like you choose X" anchor. Decision paralysis at the exact moment price is visible.</div>
+        </div>
+      </div>
+      <div class="step win">
+        <div class="step-dot">✓</div>
+        <div class="step-body">
+          <h4>4. Giveback nonprofit selection</h4>
+          <p class="note">A distinctive, brand-reinforcing moment. Adds meaning without adding friction.</p>
+        </div>
+      </div>
+      <div class="step frict">
+        <div class="step-dot">!</div>
+        <div class="step-body">
+          <h4>5. Payment &amp; checkout</h4>
+          <p class="note">Quote is locked; renter enters payment.</p>
+          <div class="friction"><b>Friction</b> No "why now" nudge. A renter who isn't lease-pressured can close the tab and "do it later" — and later rarely comes. A soft reminder path (save the quote, email it) would recover them.</div>
+        </div>
+      </div>
+      <div class="step win">
+        <div class="step-dot">✓</div>
+        <div class="step-body">
+          <h4>6. Instant policy &amp; proof of coverage</h4>
+          <p class="note">Coverage is immediate and the document is shareable with a landlord — exactly the payoff promised. Strong finish.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="why">
+      <b>The pattern</b>
+      The journey is excellent at the <em>edges</em> — entry and payoff — and leaks in the <em>middle</em>, at three moments: data asked before value, coverage chosen without guidance, and no urgency at checkout. None require rebuilding the flow; each is a copy or UX nudge. The biggest single win is step 3 — that one feeds the experiment in Section 7.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. MARKET RESEARCH ============ -->
+<section id="research">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Market research: the segment Lemonade is under-indexing on</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>Market research & segmentation</b></p>
+
+    <h3>The one-page argument: graduating renters</h3>
+    <p>Lemonade has built a remarkable engine for acquiring <strong>young renters</strong>. The under-indexed opportunity isn't a new audience — it's a <strong>lifecycle transition inside the one Lemonade already owns</strong>: the renter who becomes a first-time homebuyer, or who moves in with a partner, gets a pet, or buys a car.</p>
+
+    <p>This matters because of a structural fact about insurtech economics: renters policies are low-premium. The customer is acquired cheaply and loved early — but the lifetime value only compounds if Lemonade <strong>captures the next policy</strong> when that renter's life gets more complex. Lemonade already sells <strong>home, pet, car, and life</strong>. The gap is not product. It's a <strong>deliberate lifecycle-marketing motion</strong> that detects the trigger moment and moves the customer up the value ladder before an incumbent does.</p>
+
+    <h3>Why the window is now</h3>
+    <ul class="clean">
+      <li><strong>The cohort is aging into it.</strong> Renters acquired in Lemonade's early growth years are now hitting first-home, first-pet, first-car life stages — the exact moments insurance decisions get made.</li>
+      <li><strong>Incumbents win by default at these moments.</strong> A mortgage lender hands the buyer a home-insurance quote at closing. If Lemonade isn't present at the trigger, it loses a customer it already paid to acquire.</li>
+      <li><strong>The AutonomousCar / FSD launch proves Lemonade can move fast on new lines</strong> — the muscle exists; it needs to be pointed at its own base.</li>
+    </ul>
+
+    <h3>What I'd recommend investigating first</h3>
+    <ul class="clean">
+      <li>Quantify it: what share of churned renters bought a competing home or car policy within 12 months of leaving?</li>
+      <li>Map the trigger signals Lemonade can already see — address changes, app behavior, life-event survey data.</li>
+      <li>Size the prize: incremental LTV of moving even a modest share of renters to a second policy vs. the cost of the lifecycle program.</li>
+    </ul>
+
+    <p class="note">This is a one-page thesis, not a finished study — but it names a specific, defensible segment and the exact data needed to validate it, which is what a research one-pager is for.</p>
+  </div>
+</section>
+
+<!-- ============ 6. PERSONA ============ -->
+<section id="persona">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Persona: one sharp profile, not three shallow ones</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>Persona development</b></p>
+
+    <div class="persona">
+      <div class="persona-top">
+        <div class="avatar">M</div>
+        <div>
+          <h3>"Lease-Deadline Maya"</h3>
+          <div class="role">27 · first solo apartment · marketing coordinator · renter, no car</div>
+        </div>
+      </div>
+      <div class="persona-grid">
+        <div class="box">
+          <h4>Context</h4>
+          <p>Just signed her first lease without a roommate. Her landlord's addendum requires proof of renters insurance before move-in. She has four days.</p>
+        </div>
+        <div class="box">
+          <h4>Goal</h4>
+          <p>Tick the box, fast, without a phone call — and ideally feel like she made a smart-adult decision, not just a forced one.</p>
+        </div>
+        <div class="box">
+          <h4>Pains &amp; anxieties</h4>
+          <p>Doesn't know how much coverage is "right." Suspicious of fine print. Assumes insurance means hold music and a hard sell.</p>
+        </div>
+        <div class="box">
+          <h4>What wins her</h4>
+          <p>A quote she can finish on her phone in one sitting, plain-language coverage, and a price that feels fair for someone furnishing a flat on a budget.</p>
+        </div>
+        <div class="quote-bubble">"I don't want to 'talk to an agent.' I want to handle this tonight and never think about it again — unless something actually happens."</div>
+      </div>
+    </div>
+
+    <p>Why <em>this</em> persona, and only this one: she is the renter Lemonade wins <strong>outright</strong> — no car, so no bundle math, no incumbent advantage. She is also lease-deadline motivated, which makes her the cleanest test audience for the urgency and guidance experiments in Section 7. A PMM who tries to serve "renters, homeowners, and pet owners" all at once writes copy that's true for everyone and sharp for no one. Maya is specific enough to write a single headline against — and most of this teardown is written against her.</p>
+
+    <div class="why">
+      <b>How I'd use her</b>
+      Maya becomes the protagonist of the messaging in Section 1, the entry point of the journey in Section 4, and the target cohort for the experiment in Section 7. One persona, used consistently across every deliverable — that's the difference between a persona that ships work and a persona that sits in a slide.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. GROWTH ============ -->
+<section id="growth">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Growth: one metric, one experiment, one prediction</h2>
+    </div>
+    <p class="skill-tag">Skill demonstrated — <b>Conversion, activation &amp; retention</b></p>
+
+    <p>I won't propose ten experiments. A good PMM picks the highest-leverage one and commits to a falsifiable prediction. Here it is.</p>
+
+    <div class="exp">
+      <div class="cell">
+        <h4>The metric</h4>
+        <p>Quote-start → quote-complete conversion rate, for renters in the coverage-selection step (Section 4, step 3).</p>
+        <p class="note">Chosen because it's mid-funnel — high traffic already there, and the friction is a known UX problem, not a demand problem.</p>
+      </div>
+      <div class="cell">
+        <h4>The hypothesis</h4>
+        <p>First-time renters abandon at coverage selection because they don't know what's "normal." If we anchor the choice with social proof, decision paralysis drops and completion rises.</p>
+      </div>
+      <div class="cell full">
+        <h4>The experiment</h4>
+        <p>A/B test in the renters quote flow. <strong>Control:</strong> current coverage sliders. <strong>Variant:</strong> the same sliders, plus a smart default and an anchor line — <em>"Renters in your area typically choose around $30k of personal property coverage"</em> — with a one-tap "use this" option. Audience: first-time renters ("Lease-Deadline Maya"). Primary metric: step-3 completion. Guardrails: no drop in policies bound, no rise in under-insurance complaints.</p>
+      </div>
+      <div class="cell">
+        <h4>The prediction</h4>
+        <div class="stat"><span class="big">+8–12%</span><span class="lbl">relative lift in step-3 completion</span></div>
+        <p class="note">Anchoring effects on a paralysis-prone choice are well-documented; a defaulted, socially-proofed option reliably moves completion in this range.</p>
+      </div>
+      <div class="cell">
+        <h4>If I'm wrong</h4>
+        <p>If completion doesn't move, the constraint isn't paralysis — it's price or intent. That's still a win: it redirects effort from UX to the pricing message in Section 1. <span class="arrow">A clean negative result is a real result.</span></p>
+      </div>
+    </div>
+
+    <p>The reason this experiment is the right one: it sits exactly where Sections 4 and 6 already pointed — the same friction step, the same persona — so it isn't a random test, it's the logical conclusion of the whole teardown. That coherence, deciding what <em>not</em> to do and connecting one insight to the next, is the actual job.</p>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <h3>Why I built this instead of sending a résumé</h3>
+    <p>Product marketing is the one role where the application can be the work sample. So rather than claim I can do messaging, positioning, GTM, journey mapping, research, personas, and growth — I did all seven, on your product.</p>
+    <p style="margin-top:14px">I'd love to do the next version of this <em>with</em> your team, on a real brief.</p>
+    <p class="disc">
+      Prepared by [Your Name] · [email] · [LinkedIn]<br>
+      This is an independent, unsolicited work sample created for a job application. It is not affiliated with, commissioned by, or endorsed by Lemonade, Inc. All figures (customer counts, claims-paid rates, pricing, product availability) are drawn from publicly reported sources as of May 2026 and may change. Competitor comparisons reflect publicly available third-party reviews. Product and feature proposals are illustrative recommendations, not claims about Lemonade's actual roadmap.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
